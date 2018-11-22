@@ -10,20 +10,67 @@ defmodule Arbitrary.Gen do
     gen :: (integer() -> any())
   end
 
+  @doc """
+  Gets one random value from a `range`
+  """
+  @spec choose(range :: list()) :: %Gen{}
+  def choose(range)
+
   def choose(range) do
-    new(fn _ -> Enum.random(range) end)
+    monad %Gen{} do
+      return(Enum.random(range))
+    end
   end
+
+  @doc """
+  Gets one of the given `values`.
+  """
+  @spec elements(values :: list()) :: %Gen{}
+  def elements(values)
+
+  def elements([]) do
+    raise "elements/1 used with empty list"
+  end
+
+  def elements(xs) when is_list(xs) do
+    monad %Gen{} do
+      n <- choose(0..(length(xs) - 1))
+      return(Enum.at(xs, n))
+    end
+  end
+
+  @doc """
+  Gets a sublist of values from a list of `values`.
+  """
+  @spec sublist_of(values :: list()) :: %Gen{}
+  def sublist_of(values)
+
+  def sublist_of(xs) when is_list(xs) do
+    Control.filter(%Gen{}, xs, fn _ -> choose([false, true]) end)
+  end
+
+  @doc """
+  Gets one random generators from a list of `generators`.
+  """
+  @spec oneof(generators:: [%Gen{}]) :: %Gen{}
+  def oneof(generators)
 
   def oneof([]) do
     raise "oneof/1 used with an empty list"
   end
 
-  def oneof(gs) do
+  def oneof(gs) when is_list(gs) do
     monad %Gen{} do
       n <- choose(0..(length(gs) - 1))
       Enum.at(gs, n)
     end
   end
+
+  @doc """
+  Gets a generator according to a `frequencies` list.
+  """
+  @spec frequency(frequencies :: [%Gen{}]) :: %Gen{}
+  def frequency(frequencies)
 
   def frequency([]) do
     raise "frequency/1 used with an empty list"
@@ -49,23 +96,13 @@ defmodule Arbitrary.Gen do
     raise "pick/2 used with empty list"
   end
 
-  def elements([]) do
-    raise "elements/1 used with empty list"
-  end
+  @doc """
+  Runs a `generator`.
+  """
+  @spec generate(generator :: %Gen{}) :: term()
+  def generate(generator)
 
-  def elements(xs) do
-    monad %Gen{} do
-      n <- choose(0..(length(xs) - 1))
-      return(Enum.at(xs, n))
-    end
-  end
-
-  def sublist_of(xs) do
-    %Gen{}
-    |> Control.filter(xs, fn _ -> choose([false, true]) end)
-  end
-
-  def generate(%{gen: f}) do
+  def generate(%Gen{gen: f}) do
     f.(30)
   end
 end
@@ -81,9 +118,7 @@ definst Witchcraft.Functor, for: Gen do
   # fmap
   # map :: Gen (Int -> a) -> (a -> b) -> Gen (Int -> b)
   def map(%Gen{gen: g}, f) do
-    Gen.new(fn x ->
-      f.(g.(x))
-    end)
+    Gen.new(fn x -> f.(g.(x)) end)
   end
 end
 
